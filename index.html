@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>复古手机视频效果</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans SC", "Microsoft YaHei", Arial;
+            background: #111;
+            color: #ddd;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+        }
+
+        main {
+            margin: auto;
+            max-width: 980px;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 20px;
+            color: #fff;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .control {
+            background: #161616;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #222;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .video-area {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        canvas,
+        video {
+            background: #000;
+            border-radius: 8px;
+            max-width: 100%;
+        }
+
+        video {
+            display: none;
+        }
+
+        .btns {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #2b2b2b;
+            color: #fff;
+            border: 0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        footer {
+            margin-top: 16px;
+            color: #888;
+            font-size: 13px;
+        }
+
+        .link {
+            color: #7ddfff;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .status {
+            margin-top: 8px;
+            color: #9cc;
+            font-size: 13px;
+        }
+
+        .small {
+            font-size: 12px;
+            color: #bbb;
+            margin-top: 6px;
+        }
+
+        .preview-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .row label {
+            margin: 0;
+        }
+
+        .control .inline {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>Retro Phone Vedio Convert</h1>
+        <div class="controls">
+            <div class="control">
+                <label>上传视频</label>
+                <input id="file" type="file" accept="video/*">
+                <div class="small">支持 mp4/webm 等常见格式。</div>
+            </div>
+
+            <div class="control">
+                <label>目标格式（浏览器录制）</label>
+                <div>
+                    <label style="font-size:13px;color:#aaa"><input type="radio" name="fmt" value="webm" checked> webm
+                        (默认)</label>
+                    &nbsp;
+                    <label style="font-size:13px;color:#aaa"><input type="radio" name="fmt" value="mp4">
+                        mp4（若浏览器不支持可能无效）</label>
+                </div>
+            </div>
+
+            <div class="control">
+                <label>像素化强度（块大小）: <span id="pixVal">3</span></label>
+                <input id="pixelSize" type="range" min="2" max="64" value="3">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">开启自适应</label>
+                    <input id="pixelAdaptive" type="checkbox" checked>
+                </div>
+                <div class="small">波动范围为 ±20%，例如 8 ⇒ 6~10。</div>
+            </div>
+
+            <div class="control">
+                <label>目标帧率（FPS）: <span id="fpsVal">8</span></label>
+                <input id="targetFps" type="range" min="1" max="30" value="8">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">开启自适应</label>
+                    <input id="fpsAdaptive" type="checkbox" checked>
+                </div>
+                <div class="small">波动范围为 ±20%。</div>
+            </div>
+
+            <div class="control">
+                <label>画面噪声强度: <span id="noiseVal">0.15</span></label>
+                <input id="noiseLevel" type="range" min="0" max="0.5" step="0.01" value="0.15">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">开启自适应</label>
+                    <input id="noiseAdaptive" type="checkbox" checked>
+                </div>
+                <div class="small">仅影响画面显示效果。</div>
+            </div>
+
+            <div class="control">
+                <label>音频噪声强度: <span id="audioNoiseVal">0.01</span></label>
+                <input id="audioNoiseLevel" type="range" min="0" max="0.5" step="0.01" value="0.01">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">开启自适应</label>
+                    <input id="audioNoiseAdaptive" type="checkbox">
+                </div>
+                <div class="small">仅影响声音播放和录制。</div>
+            </div>
+
+            <div class="control">
+                <label>音频降采样因子: <span id="dsVal">0</span></label>
+                <input id="downsampleFactor" type="range" min="0" max="16" value="0">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">开启自适应</label>
+                    <input id="dsAdaptive" type="checkbox">
+                </div>
+                <div class="small">波动范围为 ±20%。</div>
+            </div>
+
+            <div class="control">
+                <label>暖色强度（暖色温）: <span id="warmVal">1.0</span></label>
+                <input id="warmIntensity" type="range" min="0" max="2" step="0.05" value="1.0">
+                <div class="small">增大可让画面更偏黄。</div>
+            </div>
+
+            <div class="control">
+                <label>CRT 强度（扫描亮暗幅度）: <span id="crtVal">0.6</span></label>
+                <input id="crtStrength" type="range" min="0" max="1.5" step="0.05" value="0.6">
+                <div class="small">调整扫描线与整体亮度抖动强弱。</div>
+            </div>
+
+            <div class="control">
+                <label>VHS 强度（噪纹/拉丝）: <span id="vhsVal">0.05</span></label>
+                <input id="vhsAmount" type="range" min="0" max="2" step="0.05" value="0.05">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">启用 VHS</label>
+                    <input id="vhsEnable" type="checkbox" checked>
+                </div>
+                <div class="small">增加将出现更多水平拉丝、抖动与色偏。</div>
+            </div>
+
+            <div class="control">
+                <label>水平错位幅度（画面轻微滚动）: <span id="scrollVal">6</span> px</label>
+                <input id="horizJitter" type="range" min="0" max="40" step="1" value="15">
+                <div class="row">
+                    <label style="font-size:12px;color:#aaa">启用 滚动</label>
+                    <input id="scrollEnable" type="checkbox" checked>
+                </div>
+                <div class="small">模拟老电视水平错位与缓慢漂移。</div>
+            </div>
+        </div>
+
+        <div class="video-area">
+            <div class="preview-wrap" style="flex:1;">
+                <label style="color:#aaa;font-size:13px">预览（处理后）</label>
+                <canvas id="output" width="640" height="360"></canvas>
+                <div class="btns">
+                    <button id="start" disabled>开始录制并处理</button>
+                    <button id="stop" disabled>停止并生成文件</button>
+                    <a id="downloadLink" style="display:none" class="link"></a>
+                </div>
+                <div class="status" id="status">未加载视频。</div>
+            </div>
+            <div style="width:320px" hidden>
+                <label style="color:#aaa;font-size:13px">原始视频（隐藏）</label>
+                <video id="source" controls crossorigin="anonymous"></video>
+                <div class="small">你也可以先在这里预览原始视频。</div>
+            </div>
+        </div>
+
+        <footer>
+            小提示：<br>
+            1.请播放完成后点击停止并下载，视频播放完成并不会自动停止录制。<br>
+            2.不同浏览器对 MediaRecorder 支持不同。建议使用 Chrome/Edge；生成 webm 通常兼容最好。<br>
+            3.如遇“无声音”或“下载文件无法播放”，尝试切换目标格式或降低音频降采样因子。
+        </footer>
+    </main>
+
+    <script>
+        (async function () {
+            const fileEl = document.getElementById('file');
+            const video = document.getElementById('source');
+            const canvas = document.getElementById('output');
+            const ctx = canvas.getContext('2d');
+
+            const pixelSizeEl = document.getElementById('pixelSize');
+            const pixelVal = document.getElementById('pixVal');
+            const fpsEl = document.getElementById('targetFps');
+            const fpsVal = document.getElementById('fpsVal');
+            const noiseEl = document.getElementById('noiseLevel');
+            const noiseVal = document.getElementById('noiseVal');
+            const dsEl = document.getElementById('downsampleFactor');
+            const dsVal = document.getElementById('dsVal');
+            const pixelAdaptive = document.getElementById('pixelAdaptive');
+            const fpsAdaptive = document.getElementById('fpsAdaptive');
+            const noiseAdaptive = document.getElementById('noiseAdaptive');
+            const dsAdaptive = document.getElementById('dsAdaptive');
+
+            const audioNoiseEl = document.getElementById('audioNoiseLevel');
+            const audioNoiseVal = document.getElementById('audioNoiseVal');
+            const audioNoiseAdaptive = document.getElementById('audioNoiseAdaptive');
+
+            const warmEl = document.getElementById('warmIntensity');
+            const warmVal = document.getElementById('warmVal');
+            const crtEl = document.getElementById('crtStrength');
+            const crtVal = document.getElementById('crtVal');
+            const vhsEl = document.getElementById('vhsAmount');
+            const vhsVal = document.getElementById('vhsVal');
+            const vhsEnable = document.getElementById('vhsEnable');
+            const scrollEl = document.getElementById('horizJitter');
+            const scrollVal = document.getElementById('scrollVal');
+            const scrollEnable = document.getElementById('scrollEnable');
+
+            const startBtn = document.getElementById('start');
+            const stopBtn = document.getElementById('stop');
+            const status = document.getElementById('status');
+            const downloadLink = document.getElementById('downloadLink');
+
+            const updateDisplays = () => {
+                pixelVal.textContent = pixelSizeEl.value;
+                fpsVal.textContent = fpsEl.value;
+                noiseVal.textContent = parseFloat(noiseEl.value).toFixed(2);
+                dsVal.textContent = dsEl.value;
+                warmVal.textContent = parseFloat(warmEl.value).toFixed(2);
+                crtVal.textContent = parseFloat(crtEl.value).toFixed(2);
+                vhsVal.textContent = parseFloat(vhsEl.value).toFixed(2);
+                scrollVal.textContent = scrollEl.value;
+                audioNoiseVal.textContent = parseFloat(audioNoiseEl.value).toFixed(2);
+            };
+            [pixelSizeEl, fpsEl, noiseEl, dsEl, warmEl, crtEl, vhsEl, scrollEl, audioNoiseEl].forEach(el => el.addEventListener('input', updateDisplays));
+            updateDisplays();
+
+            let mediaRecorder = null;
+            let recordedChunks = [];
+            let animReq = null;
+            let lastDrawTime = 0;
+
+            let audioCtx = null;
+            let sourceNode = null;
+            let processor = null;
+            let audioDest = null;
+
+            let livePixel = parseInt(pixelSizeEl.value, 10);
+            let liveFps = parseInt(fpsEl.value, 10);
+            let liveNoise = parseFloat(noiseEl.value);
+            let liveAudioNoise = parseFloat(audioNoiseEl.value);
+            let liveDownsample = parseInt(dsEl.value, 10);
+            let liveWarm = parseFloat(warmEl.value);
+            let liveCrt = parseFloat(crtEl.value);
+            let liveVhs = parseFloat(vhsEl.value);
+            let liveScroll = parseInt(scrollEl.value, 10);
+
+            function clamp(v, a, b) { return Math.max(a, Math.min(b, v)) }
+            function randBetween(a, b) { return Math.random() * (b - a) + a }
+            function adaptiveValue(base) { const min = base * 0.8, max = base * 1.2; return randBetween(min, max) }
+
+            fileEl.addEventListener('change', (e) => {
+                const f = e.target.files && e.target.files[0];
+                if (!f) return;
+                const url = URL.createObjectURL(f);
+                video.src = url;
+                video.load();
+                video.onloadedmetadata = () => {
+                    canvas.width = Math.min(960, video.videoWidth) || 640;
+                    canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth) || 360);
+                    status.textContent = '视频已加载，准备就绪。';
+                    startBtn.disabled = false;
+                    downloadLink.style.display = 'none';
+                    recordedChunks = [];
+                }
+            });
+
+            let crtPhase = 0, scrollPhase = 0, vhsLineOffset = 0;
+
+            function drawFrameLoop() {
+                const now = performance.now();
+                const interval = 1000 / Math.max(1, liveFps);
+                if (now - lastDrawTime >= interval) {
+                    lastDrawTime = now;
+
+                    const basePixel = parseInt(pixelSizeEl.value, 10) || 8;
+                    const baseFps = parseInt(fpsEl.value, 10) || 8;
+                    const baseNoise = parseFloat(noiseEl.value) || 0.08;
+                    const baseDs = parseInt(dsEl.value, 10) || 4;
+
+                    livePixel = pixelAdaptive.checked ? Math.max(1, Math.round(adaptiveValue(basePixel))) : basePixel;
+                    liveFps = fpsAdaptive.checked ? Math.max(1, Math.round(adaptiveValue(baseFps))) : baseFps;
+                    liveNoise = noiseAdaptive.checked ? clamp(adaptiveValue(baseNoise), 0, 1) : baseNoise;
+                    liveDownsample = dsAdaptive.checked ? Math.max(1, Math.round(adaptiveValue(baseDs))) : baseDs;
+                    liveAudioNoise = audioNoiseAdaptive.checked ? clamp(adaptiveValue(parseFloat(audioNoiseEl.value)), 0, 1) : parseFloat(audioNoiseEl.value);
+
+                    liveWarm = parseFloat(warmEl.value);
+                    liveCrt = parseFloat(crtEl.value);
+                    liveVhs = parseFloat(vhsEl.value);
+                    liveScroll = parseInt(scrollEl.value, 10);
+
+                    crtPhase += 0.02 + Math.random() * 0.01;
+                    scrollPhase += 0.005 + Math.random() * 0.01;
+                    vhsLineOffset += 0.3 + Math.random() * 0.7;
+
+                    const pixel = Math.max(1, livePixel);
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    const smallW = Math.max(1, Math.floor(w / pixel));
+                    const smallH = Math.max(1, Math.floor(h / pixel));
+                    if (!drawFrameLoop.off) { drawFrameLoop.off = document.createElement('canvas') }
+                    const off = drawFrameLoop.off;
+                    off.width = smallW;
+                    off.height = smallH;
+                    const offCtx = off.getContext('2d');
+                    try { offCtx.drawImage(video, 0, 0, smallW, smallH) } catch (e) { }
+
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.clearRect(0, 0, w, h);
+
+                    let offset = 0;
+                    if (scrollEnable.checked) {
+                        offset = Math.round(Math.sin(scrollPhase) * (liveScroll * 0.5) + (Math.random() - 0.5) * (liveScroll * 0.4));
+                    }
+                    if (offset >= 0) {
+                        ctx.drawImage(off, 0, 0, smallW, smallH, offset, 0, w - offset, h);
+                        ctx.drawImage(off, 0, 0, smallW, smallH, offset - w, 0, w, h);
+                    } else {
+                        const ox = Math.abs(offset);
+                        ctx.drawImage(off, 0, 0, smallW, smallH, 0, 0, w - ox, h);
+                        ctx.drawImage(off, 0, 0, smallW, smallH, w - ox, 0, ox, h);
+                    }
+
+                    const imageData = ctx.getImageData(0, 0, w, h);
+                    const data = imageData.data;
+                    const len = data.length;
+
+                    const flickerBase = 1 + Math.sin(crtPhase) * (0.02 * liveCrt) + (Math.random() - 0.5) * (0.01 * liveCrt);
+                    const warmGainR = 1 + 0.06 * (liveWarm - 1);
+                    const warmGainG = 1 + 0.03 * (liveWarm - 1);
+                    const warmGainB = 1 - 0.02 * (liveWarm - 1);
+                    const scanHeight = Math.max(1, Math.floor(h / 120));
+                    const scanAmplitude = 0.08 * liveCrt;
+                    const vhsStrength = liveVhs;
+                    const vhsLines = Math.max(1, Math.round(6 * vhsStrength));
+                    const vhsMaxShift = Math.round(8 * vhsStrength);
+
+                    for (let y = 0; y < h; y++) {
+                        const flicker = flickerBase * (1 + (scanAmplitude * Math.sin((y + h * crtPhase) / scanHeight)));
+                        for (let x = 0; x < w; x++) {
+                            const i = (y * w + x) * 4;
+                            data[i] *= flicker * warmGainR;
+                            data[i + 1] *= flicker * warmGainG;
+                            data[i + 2] *= flicker * warmGainB;
+                            if (vhsEnable.checked) {
+                                for (let l = 0; l < vhsLines; l++) {
+                                    const lineY = (y + l) % h;
+                                    const shift = Math.round(Math.sin((lineY + vhsLineOffset) / 10) * vhsMaxShift);
+                                    const si = ((lineY * w + clamp(x + shift, 0, w - 1)) * 4);
+                                    data[i] = data[si];
+                                    data[i + 1] = data[si + 1];
+                                    data[i + 2] = data[si + 2];
+                                }
+                            }
+                            const noise = (Math.random() * 2 - 1) * liveNoise * 255;
+                            data[i] += noise;
+                            data[i + 1] += noise;
+                            data[i + 2] += noise;
+                        }
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                }
+                animReq = requestAnimationFrame(drawFrameLoop);
+            }
+
+            const state = { lastL: 0, lastR: 0, holdCount: 0 };
+
+            startBtn.addEventListener('click', async () => {
+                if (!video.src) return;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                recordedChunks = [];
+
+                audioCtx = new AudioContext();
+                sourceNode = audioCtx.createMediaElementSource(video);
+                processor = audioCtx.createScriptProcessor(1024, 2, 2);
+                audioDest = audioCtx.createMediaStreamDestination();
+
+                processor.onaudioprocess = function (e) {
+                    const inL = e.inputBuffer.getChannelData(0);
+                    const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
+                    const outL = e.outputBuffer.getChannelData(0);
+                    const outR = e.outputBuffer.getChannelData(1);
+                    const dsNow = Math.max(1, liveDownsample);
+                    const noiseNow = liveAudioNoise;
+                    for (let i = 0; i < inL.length; i++) {
+                        if (state.holdCount % dsNow === 0) {
+                            state.lastL = inL[i];
+                            state.lastR = inR[i];
+                        }
+                        let sL = state.lastL;
+                        let sR = state.lastR;
+                        sL += (Math.random() * 2 - 1) * noiseNow;
+                        sR += (Math.random() * 2 - 1) * noiseNow;
+                        outL[i] = clamp(sL, -1, 1);
+                        outR[i] = clamp(sR, -1, 1);
+                        state.holdCount++;
+                    }
+                };
+
+                sourceNode.connect(processor);
+                processor.connect(audioCtx.destination);
+                processor.connect(audioDest);
+                video.play();
+
+                const canvasStream = canvas.captureStream();
+                const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]);
+
+                const fmt = document.querySelector('input[name="fmt"]:checked').value;
+                mediaRecorder = new MediaRecorder(combinedStream, { mimeType: `video/${fmt}` });
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); }
+                mediaRecorder.start(100);
+                drawFrameLoop();
+                status.textContent = '正在录制并处理视频...';
+            });
+
+            stopBtn.addEventListener('click', () => {
+                stopBtn.disabled = true;
+                startBtn.disabled = false;
+                if (mediaRecorder) mediaRecorder.stop();
+                cancelAnimationFrame(animReq);
+                video.pause();
+                audioCtx.close();
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                downloadLink.href = url;
+                downloadLink.download = 'processed_video.webm';
+                downloadLink.textContent = '点击下载处理后视频';
+                downloadLink.style.display = 'inline-block';
+                status.textContent = '处理完成，生成文件。';
+            });
+        })();
+    </script>
+</body>
+
+</html>
